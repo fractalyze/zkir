@@ -66,3 +66,44 @@ MlirAttribute primeIRShortWeierstrassAttrGetGx(MlirAttribute attr) {
 MlirAttribute primeIRShortWeierstrassAttrGetGy(MlirAttribute attr) {
   return wrap(llvm::cast<ShortWeierstrassAttr>(unwrap(attr)).getGy());
 }
+
+//===----------------------------------------------------------------------===//
+// TwistedEdwards attribute.
+//===----------------------------------------------------------------------===//
+
+MlirTypeID primeIRTwistedEdwardsAttrGetTypeID(void) {
+  return wrap(TwistedEdwardsAttr::getTypeID());
+}
+
+bool primeIRAttributeIsATwistedEdwards(MlirAttribute attr) {
+  return llvm::isa<TwistedEdwardsAttr>(unwrap(attr));
+}
+
+MlirAttribute primeIRTwistedEdwardsAttrGet(MlirContext ctx, MlirType baseField,
+                                           MlirAttribute a, MlirAttribute d,
+                                           MlirAttribute Gx, MlirAttribute Gy) {
+  return wrap(TwistedEdwardsAttr::get(
+      unwrap(ctx), unwrap(baseField), llvm::cast<TypedAttr>(unwrap(a)),
+      llvm::cast<TypedAttr>(unwrap(d)), llvm::cast<TypedAttr>(unwrap(Gx)),
+      llvm::cast<TypedAttr>(unwrap(Gy))));
+}
+
+MlirType primeIRTwistedEdwardsAttrGetBaseField(MlirAttribute attr) {
+  return wrap(llvm::cast<TwistedEdwardsAttr>(unwrap(attr)).getBaseField());
+}
+
+MlirAttribute primeIRTwistedEdwardsAttrGetA(MlirAttribute attr) {
+  return wrap(llvm::cast<TwistedEdwardsAttr>(unwrap(attr)).getA());
+}
+
+MlirAttribute primeIRTwistedEdwardsAttrGetD(MlirAttribute attr) {
+  return wrap(llvm::cast<TwistedEdwardsAttr>(unwrap(attr)).getD());
+}
+
+MlirAttribute primeIRTwistedEdwardsAttrGetGx(MlirAttribute attr) {
+  return wrap(llvm::cast<TwistedEdwardsAttr>(unwrap(attr)).getGx());
+}
+
+MlirAttribute primeIRTwistedEdwardsAttrGetGy(MlirAttribute attr) {
+  return wrap(llvm::cast<TwistedEdwardsAttr>(unwrap(attr)).getGy());
+}

@@ -36,6 +36,20 @@ public:
   static void bindDerived(ClassTy &c);
 };
 
+class PyTwistedEdwardsAttr
+    : public mlir::python::MLIR_BINDINGS_PYTHON_DOMAIN::PyConcreteAttribute<
+          PyTwistedEdwardsAttr> {
+public:
+  static constexpr IsAFunctionTy isaFunction =
+      primeIRAttributeIsATwistedEdwards;
+  static constexpr GetTypeIDFunctionTy getTypeIdFunction =
+      primeIRTwistedEdwardsAttrGetTypeID;
+  static constexpr const char *pyClassName = "TwistedEdwardsAttr";
+  using PyConcreteAttribute::PyConcreteAttribute;
+
+  static void bindDerived(ClassTy &c);
+};
+
 void populateIRAttributes(nanobind::module_ &m);
 
 } // namespace mlir::prime_ir::elliptic_curve::python

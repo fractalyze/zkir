@@ -44,11 +44,19 @@ BN254_G2_GY = [
 ]
 
 
-def _create_bn254_prime_field(ctx):
-  """Create BN254 base field (Fp) type for curve coordinates."""
+def _create_prime_field(ctx, modulus_value):
+  """Create a 256-bit canonical prime field type for curve coordinates."""
   i256 = IntegerType.get_unsigned(256)
-  modulus = IntegerAttr.get(i256, BN254_BASE_FIELD_MODULUS)
+  modulus = IntegerAttr.get(i256, modulus_value)
   return field.PrimeFieldType.get(modulus, False, ctx)
+
+
+def _create_bn254_prime_field(ctx):
+  return _create_prime_field(ctx, BN254_BASE_FIELD_MODULUS)
+
+
+def _create_ed25519_prime_field(ctx):
+  return _create_prime_field(ctx, ED25519_BASE_FIELD_MODULUS)
 
 
 def _create_bn254_extension_field(ctx, prime_field):
@@ -88,6 +96,25 @@ def _create_bn254_g2_curve(ctx, base_field):
   gx = _create_fp2_attr(ctx, BN254_G2_GX)
   gy = _create_fp2_attr(ctx, BN254_G2_GY)
   return elliptic_curve.ShortWeierstrassAttr.get(base_field, a, b, gx, gy, ctx)
+
+
+# Ed25519 (RFC 8032 §5.1): a twisted Edwards curve a·x² + y² = 1 + d·x²y² over
+# GF(2^255 - 19), with a = -1 and d = -121665/121666.
+ED25519_BASE_FIELD_MODULUS = 2**255 - 19
+ED25519_A = ED25519_BASE_FIELD_MODULUS - 1
+ED25519_D = 37095705934669439343138083508754565189542113879843219016388785533085940283555
+ED25519_GX = 15112221349535400772501151409588531511454012693041857206046113283949847762202
+ED25519_GY = 46316835694926478169428394003475163141307993866256225615783033603165251855960
+
+
+def _create_ed25519_curve(ctx, base_field):
+  """Create the Ed25519 twisted Edwards curve attribute."""
+  i256 = IntegerType.get_unsigned(256)
+  a = IntegerAttr.get(i256, ED25519_A)
+  d = IntegerAttr.get(i256, ED25519_D)
+  gx = IntegerAttr.get(i256, ED25519_GX)
+  gy = IntegerAttr.get(i256, ED25519_GY)
+  return elliptic_curve.TwistedEdwardsAttr.get(base_field, a, d, gx, gy, ctx)
 
 
 class EllipticCurveTest(absltest.TestCase):
@@ -185,6 +212,45 @@ class EllipticCurveTest(absltest.TestCase):
       # Create XYZZ point type
       xyzz_type = elliptic_curve.XYZZType.get(curve, ctx)
       self.assertEqual(xyzz_type.curve, curve)
+
+  def testTwistedEdwardsAttr(self):
+    """Test creating and reading twisted Edwards curve attributes."""
+    with Context() as ctx, Location.unknown():
+      field.register_dialect(ctx)
+      elliptic_curve.register_dialect(ctx)
+
+      base_field = _create_ed25519_prime_field(ctx)
+      curve = _create_ed25519_curve(ctx, base_field)
+
+      self.assertEqual(curve.base_field, base_field)
+      self.assertEqual(int(IntegerAttr(curve.a)), ED25519_A)
+      self.assertEqual(int(IntegerAttr(curve.d)), ED25519_D)
+      self.assertEqual(int(IntegerAttr(curve.gx)), ED25519_GX)
+      self.assertEqual(int(IntegerAttr(curve.gy)), ED25519_GY)
+
+  def testEdAffineType(self):
+    """Test creating twisted Edwards affine point types."""
+    with Context() as ctx, Location.unknown():
+      field.register_dialect(ctx)
+      elliptic_curve.register_dialect(ctx)
+
+      base_field = _create_ed25519_prime_field(ctx)
+      curve = _create_ed25519_curve(ctx, base_field)
+
+      ed_affine_type = elliptic_curve.EdAffineType.get(curve, ctx)
+      self.assertEqual(ed_affine_type.curve, curve)
+
+  def testEdExtendedType(self):
+    """Test creating twisted Edwards extended point types."""
+    with Context() as ctx, Location.unknown():
+      field.register_dialect(ctx)
+      elliptic_curve.register_dialect(ctx)
+
+      base_field = _create_ed25519_prime_field(ctx)
+      curve = _create_ed25519_curve(ctx, base_field)
+
+      ed_extended_type = elliptic_curve.EdExtendedType.get(curve, ctx)
+      self.assertEqual(ed_extended_type.curve, curve)
 
 
 if __name__ == "__main__":

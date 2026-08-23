@@ -119,7 +119,8 @@ def EllipticCurve_XYZZType : EllipticCurve_Type<"XYZZ", "xyzz", [
 def EllipticCurve_EdAffineType : EllipticCurve_Type<"EdAffine", "ed_affine", [
   MemRefElementTypeInterface,
   DeclareTypeInterfaceMethods<EllipticCurve_PointTypeInterface>,
-  DeclareTypeInterfaceMethods<ConstantLikeInterface>
+  DeclareTypeInterfaceMethods<ConstantLikeInterface>,
+  DeclareTypeInterfaceMethods<DenseElementTypeInterface>
   ]> {
   let summary = "An affine point on a twisted Edwards curve";
   let description = [{
@@ -139,7 +140,8 @@ def EllipticCurve_EdAffineType : EllipticCurve_Type<"EdAffine", "ed_affine", [
 def EllipticCurve_EdExtendedType : EllipticCurve_Type<"EdExtended", "ed_extended", [
   MemRefElementTypeInterface,
   DeclareTypeInterfaceMethods<EllipticCurve_PointTypeInterface>,
-  DeclareTypeInterfaceMethods<ConstantLikeInterface>
+  DeclareTypeInterfaceMethods<ConstantLikeInterface>,
+  DeclareTypeInterfaceMethods<DenseElementTypeInterface>
   ]> {
   let summary = "An extended point on a twisted Edwards curve";
   let description = [{

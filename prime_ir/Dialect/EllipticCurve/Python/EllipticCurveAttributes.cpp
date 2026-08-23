@@ -71,6 +71,60 @@ void PyShortWeierstrassAttr::bindDerived(ClassTy &c) {
       "Returns the y-coordinate of the generator point");
 }
 
-void populateIRAttributes(nb::module_ &m) { PyShortWeierstrassAttr::bind(m); }
+// static
+void PyTwistedEdwardsAttr::bindDerived(ClassTy &c) {
+  c.def_static(
+      "get",
+      [](PyType &baseField, PyAttribute &a, PyAttribute &d, PyAttribute &Gx,
+         PyAttribute &Gy,
+         DefaultingPyMlirContext context) -> PyTwistedEdwardsAttr {
+        MlirAttribute attr = primeIRTwistedEdwardsAttrGet(
+            context->get(), baseField, a, d, Gx, Gy);
+        return PyTwistedEdwardsAttr(context->getRef(), attr);
+      },
+      nb::arg("base_field"), nb::arg("a"), nb::arg("d"), nb::arg("gx"),
+      nb::arg("gy"), nb::arg("context") = nb::none(),
+      "Create a TwistedEdwards curve attribute");
+  c.def_prop_ro(
+      "base_field",
+      [](PyTwistedEdwardsAttr &self) -> PyType {
+        return PyType(self.getContext(),
+                      primeIRTwistedEdwardsAttrGetBaseField(self));
+      },
+      "Returns the base field type of the curve");
+  c.def_prop_ro(
+      "a",
+      [](PyTwistedEdwardsAttr &self) -> PyAttribute {
+        return PyAttribute(self.getContext(),
+                           primeIRTwistedEdwardsAttrGetA(self));
+      },
+      "Returns the 'a' coefficient of the curve");
+  c.def_prop_ro(
+      "d",
+      [](PyTwistedEdwardsAttr &self) -> PyAttribute {
+        return PyAttribute(self.getContext(),
+                           primeIRTwistedEdwardsAttrGetD(self));
+      },
+      "Returns the 'd' coefficient of the curve");
+  c.def_prop_ro(
+      "gx",
+      [](PyTwistedEdwardsAttr &self) -> PyAttribute {
+        return PyAttribute(self.getContext(),
+                           primeIRTwistedEdwardsAttrGetGx(self));
+      },
+      "Returns the x-coordinate of the generator point");
+  c.def_prop_ro(
+      "gy",
+      [](PyTwistedEdwardsAttr &self) -> PyAttribute {
+        return PyAttribute(self.getContext(),
+                           primeIRTwistedEdwardsAttrGetGy(self));
+      },
+      "Returns the y-coordinate of the generator point");
+}
+
+void populateIRAttributes(nb::module_ &m) {
+  PyShortWeierstrassAttr::bind(m);
+  PyTwistedEdwardsAttr::bind(m);
+}
 
 } // namespace mlir::prime_ir::elliptic_curve::python

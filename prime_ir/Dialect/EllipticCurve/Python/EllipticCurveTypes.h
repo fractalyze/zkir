@@ -61,6 +61,32 @@ public:
   static void bindDerived(ClassTy &c);
 };
 
+class PyEdAffineType
+    : public mlir::python::MLIR_BINDINGS_PYTHON_DOMAIN::PyConcreteType<
+          PyEdAffineType> {
+public:
+  static constexpr IsAFunctionTy isaFunction = primeIRTypeIsAnEdAffine;
+  static constexpr GetTypeIDFunctionTy getTypeIdFunction =
+      primeIREdAffineTypeGetTypeID;
+  static constexpr const char *pyClassName = "EdAffineType";
+  using PyConcreteType::PyConcreteType;
+
+  static void bindDerived(ClassTy &c);
+};
+
+class PyEdExtendedType
+    : public mlir::python::MLIR_BINDINGS_PYTHON_DOMAIN::PyConcreteType<
+          PyEdExtendedType> {
+public:
+  static constexpr IsAFunctionTy isaFunction = primeIRTypeIsAnEdExtended;
+  static constexpr GetTypeIDFunctionTy getTypeIdFunction =
+      primeIREdExtendedTypeGetTypeID;
+  static constexpr const char *pyClassName = "EdExtendedType";
+  using PyConcreteType::PyConcreteType;
+
+  static void bindDerived(ClassTy &c);
+};
+
 void populateIRTypes(nanobind::module_ &m);
 
 } // namespace mlir::prime_ir::elliptic_curve::python

@@ -83,3 +83,41 @@ MlirType primeIRXYZZTypeGet(MlirContext ctx, MlirAttribute curve) {
 MlirAttribute primeIRXYZZTypeGetCurve(MlirType type) {
   return wrap(llvm::cast<XYZZType>(unwrap(type)).getCurve());
 }
+
+//===----------------------------------------------------------------------===//
+// Twisted Edwards point types.
+//===----------------------------------------------------------------------===//
+
+MlirTypeID primeIREdAffineTypeGetTypeID(void) {
+  return wrap(EdAffineType::getTypeID());
+}
+
+bool primeIRTypeIsAnEdAffine(MlirType type) {
+  return llvm::isa<EdAffineType>(unwrap(type));
+}
+
+MlirType primeIREdAffineTypeGet(MlirContext ctx, MlirAttribute curve) {
+  return wrap(EdAffineType::get(unwrap(ctx),
+                                llvm::cast<TwistedEdwardsAttr>(unwrap(curve))));
+}
+
+MlirAttribute primeIREdAffineTypeGetCurve(MlirType type) {
+  return wrap(llvm::cast<EdAffineType>(unwrap(type)).getCurve());
+}
+
+MlirTypeID primeIREdExtendedTypeGetTypeID(void) {
+  return wrap(EdExtendedType::getTypeID());
+}
+
+bool primeIRTypeIsAnEdExtended(MlirType type) {
+  return llvm::isa<EdExtendedType>(unwrap(type));
+}
+
+MlirType primeIREdExtendedTypeGet(MlirContext ctx, MlirAttribute curve) {
+  return wrap(EdExtendedType::get(
+      unwrap(ctx), llvm::cast<TwistedEdwardsAttr>(unwrap(curve))));
+}
+
+MlirAttribute primeIREdExtendedTypeGetCurve(MlirType type) {
+  return wrap(llvm::cast<EdExtendedType>(unwrap(type)).getCurve());
+}

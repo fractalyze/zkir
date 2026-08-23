@@ -76,10 +76,52 @@ void PyXYZZType::bindDerived(ClassTy &c) {
       "Returns the curve attribute of the xyzz point type");
 }
 
+// static
+void PyEdAffineType::bindDerived(ClassTy &c) {
+  c.def_static(
+      "get",
+      [](PyAttribute &curve,
+         DefaultingPyMlirContext context) -> PyEdAffineType {
+        MlirType t = primeIREdAffineTypeGet(context->get(), curve);
+        return PyEdAffineType(context->getRef(), t);
+      },
+      nb::arg("curve"), nb::arg("context") = nb::none(),
+      "Create a twisted Edwards affine point type with the given curve");
+  c.def_prop_ro(
+      "curve",
+      [](PyEdAffineType &self) -> PyAttribute {
+        return PyAttribute(self.getContext(),
+                           primeIREdAffineTypeGetCurve(self));
+      },
+      "Returns the curve attribute of the ed_affine point type");
+}
+
+// static
+void PyEdExtendedType::bindDerived(ClassTy &c) {
+  c.def_static(
+      "get",
+      [](PyAttribute &curve,
+         DefaultingPyMlirContext context) -> PyEdExtendedType {
+        MlirType t = primeIREdExtendedTypeGet(context->get(), curve);
+        return PyEdExtendedType(context->getRef(), t);
+      },
+      nb::arg("curve"), nb::arg("context") = nb::none(),
+      "Create a twisted Edwards extended point type with the given curve");
+  c.def_prop_ro(
+      "curve",
+      [](PyEdExtendedType &self) -> PyAttribute {
+        return PyAttribute(self.getContext(),
+                           primeIREdExtendedTypeGetCurve(self));
+      },
+      "Returns the curve attribute of the ed_extended point type");
+}
+
 void populateIRTypes(nb::module_ &m) {
   PyAffineType::bind(m);
   PyJacobianType::bind(m);
   PyXYZZType::bind(m);
+  PyEdAffineType::bind(m);
+  PyEdExtendedType::bind(m);
 }
 
 } // namespace mlir::prime_ir::elliptic_curve::python
