@@ -66,6 +66,48 @@ primeIRShortWeierstrassAttrGetGx(MlirAttribute attr);
 MLIR_CAPI_EXPORTED MlirAttribute
 primeIRShortWeierstrassAttrGetGy(MlirAttribute attr);
 
+//===----------------------------------------------------------------------===//
+// TwistedEdwards attribute.
+//===----------------------------------------------------------------------===//
+
+// Returns the typeID of a TwistedEdwards attribute.
+MLIR_CAPI_EXPORTED MlirTypeID primeIRTwistedEdwardsAttrGetTypeID(void);
+
+// Checks whether the given attribute is a TwistedEdwards attribute.
+MLIR_CAPI_EXPORTED bool primeIRAttributeIsATwistedEdwards(MlirAttribute attr);
+
+// Creates a TwistedEdwards curve attribute.
+// Parameters:
+//   ctx: The MLIR context
+//   baseField: The base field type (!field.pf or !field.ef)
+//   a: The 'a' coefficient in a·x² + y² = 1 + d·x²y² (TypedAttr)
+//   d: The 'd' coefficient in a·x² + y² = 1 + d·x²y² (TypedAttr)
+//   Gx: The x-coordinate of the generator point (TypedAttr)
+//   Gy: The y-coordinate of the generator point (TypedAttr)
+MLIR_CAPI_EXPORTED MlirAttribute primeIRTwistedEdwardsAttrGet(
+    MlirContext ctx, MlirType baseField, MlirAttribute a, MlirAttribute d,
+    MlirAttribute Gx, MlirAttribute Gy);
+
+// Returns the base field type of the curve.
+MLIR_CAPI_EXPORTED MlirType
+primeIRTwistedEdwardsAttrGetBaseField(MlirAttribute attr);
+
+// Returns the 'a' coefficient of the curve.
+MLIR_CAPI_EXPORTED MlirAttribute
+primeIRTwistedEdwardsAttrGetA(MlirAttribute attr);
+
+// Returns the 'd' coefficient of the curve.
+MLIR_CAPI_EXPORTED MlirAttribute
+primeIRTwistedEdwardsAttrGetD(MlirAttribute attr);
+
+// Returns the x-coordinate of the generator point.
+MLIR_CAPI_EXPORTED MlirAttribute
+primeIRTwistedEdwardsAttrGetGx(MlirAttribute attr);
+
+// Returns the y-coordinate of the generator point.
+MLIR_CAPI_EXPORTED MlirAttribute
+primeIRTwistedEdwardsAttrGetGy(MlirAttribute attr);
+
 #ifdef __cplusplus
 }
 #endif

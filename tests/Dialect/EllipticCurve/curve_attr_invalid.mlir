@@ -51,3 +51,23 @@
 // Twisted Edwards runs the same validation before its own curve equation.
 // expected-error@+1 {{expected 'i32' attribute for gX, but got 'i64'}}
 #te_width = #elliptic_curve.te<1:i32, 2:i32, (1, 0:i32)> : !field.pf<7681 : i32>
+
+// -----
+
+// Twisted Edwards requires a non-zero 'a'.
+// expected-error@+1 {{twisted Edwards parameter 'a' must be non-zero}}
+#te_zero_a = #elliptic_curve.te<0:i32, 2:i32, (1:i32, 0:i32)> : !field.pf<7681 : i32>
+
+// -----
+
+// ... and a non-zero 'd', or the curve degenerates to a conic.
+// expected-error@+1 {{twisted Edwards parameter 'd' must be non-zero}}
+#te_zero_d = #elliptic_curve.te<1:i32, 0:i32, (1:i32, 0:i32)> : !field.pf<7681 : i32>
+
+// -----
+
+// Generator not on a·x² + y² = 1 + d·x²y². The Weierstrass analogue is
+// #sw_off_curve above; this is the twisted Edwards equation, which takes 'd'
+// where that one takes 'b'.
+// expected-error@+1 {{a, d, gX, and gY must satisfy the equation}}
+#te_off_curve = #elliptic_curve.te<1:i32, 2:i32, (3:i32, 4:i32)> : !field.pf<7681 : i32>

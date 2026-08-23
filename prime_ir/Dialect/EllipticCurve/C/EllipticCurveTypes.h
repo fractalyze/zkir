@@ -73,6 +73,36 @@ MLIR_CAPI_EXPORTED MlirType primeIRXYZZTypeGet(MlirContext ctx,
 // Returns the curve attribute of the given xyzz point type.
 MLIR_CAPI_EXPORTED MlirAttribute primeIRXYZZTypeGetCurve(MlirType type);
 
+//===----------------------------------------------------------------------===//
+// Twisted Edwards point types.
+//===----------------------------------------------------------------------===//
+
+// Returns the typeID of an ed_affine point type.
+MLIR_CAPI_EXPORTED MlirTypeID primeIREdAffineTypeGetTypeID(void);
+
+// Checks whether the given type is an ed_affine point type.
+MLIR_CAPI_EXPORTED bool primeIRTypeIsAnEdAffine(MlirType type);
+
+// Creates an ed_affine point type with the given twisted Edwards curve.
+MLIR_CAPI_EXPORTED MlirType primeIREdAffineTypeGet(MlirContext ctx,
+                                                   MlirAttribute curve);
+
+// Returns the curve attribute of the given ed_affine point type.
+MLIR_CAPI_EXPORTED MlirAttribute primeIREdAffineTypeGetCurve(MlirType type);
+
+// Returns the typeID of an ed_extended point type.
+MLIR_CAPI_EXPORTED MlirTypeID primeIREdExtendedTypeGetTypeID(void);
+
+// Checks whether the given type is an ed_extended point type.
+MLIR_CAPI_EXPORTED bool primeIRTypeIsAnEdExtended(MlirType type);
+
+// Creates an ed_extended point type with the given twisted Edwards curve.
+MLIR_CAPI_EXPORTED MlirType primeIREdExtendedTypeGet(MlirContext ctx,
+                                                     MlirAttribute curve);
+
+// Returns the curve attribute of the given ed_extended point type.
+MLIR_CAPI_EXPORTED MlirAttribute primeIREdExtendedTypeGetCurve(MlirType type);
+
 #ifdef __cplusplus
 }
 #endif
