@@ -39,28 +39,27 @@ using namespace mlir::LLVM;
 // Conversion patterns.
 //===----------------------------------------------------------------------===//
 namespace {
-template <typename T>
-Type convertPointType(T type, LLVMTypeConverter &typeConverter) {
-  Type baseFieldType = type.getCurve().getBaseField();
+// A point lowers to a flat struct of one converted coordinate per coordinate
+// slot. Keyed on the interface rather than on each concrete point type: a
+// per-type registration is a list of lambdas, so a family added later (twisted
+// Edwards was) compiles fine while silently converting to null, and the first
+// symptom is a null dereference deep inside the LLVM lowering. getNumCoords()
+// is an exhaustive switch over PointKind, so it is the one place that cannot
+// forget a representation.
+Type convertPointType(PointTypeInterface type,
+                      LLVMTypeConverter &typeConverter) {
+  Type baseFieldType = type.getBaseFieldType();
   Type coordType;
   if (auto pfType = dyn_cast<field::PrimeFieldType>(baseFieldType)) {
     coordType = pfType.getStorageType();
   } else {
     coordType = typeConverter.convertType(baseFieldType);
   }
-  if constexpr (std::is_same_v<T, AffineType>) {
-    return LLVM::LLVMStructType::getLiteral(type.getContext(),
-                                            {coordType, coordType});
-  } else if constexpr (std::is_same_v<T, JacobianType>) {
-    return LLVM::LLVMStructType::getLiteral(type.getContext(),
-                                            {coordType, coordType, coordType});
-
-  } else if constexpr (std::is_same_v<T, XYZZType>) {
-    return LLVM::LLVMStructType::getLiteral(
-        type.getContext(), {coordType, coordType, coordType, coordType});
-  } else {
-    return type;
+  if (!coordType) {
+    return nullptr;
   }
+  SmallVector<Type> coordTypes(type.getNumCoords(), coordType);
+  return LLVM::LLVMStructType::getLiteral(type.getContext(), coordTypes);
 }
 
 struct ConvertFromCoords : public ConvertOpToLLVMPattern<FromCoordsOp> {
@@ -71,20 +70,33 @@ struct ConvertFromCoords : public ConvertOpToLLVMPattern<FromCoordsOp> {
                   ConversionPatternRewriter &rewriter) const override {
     auto loc = op.getLoc();
     auto structType = typeConverter->convertType(op.getType());
-    if (isa<AffineType>(op.getType())) {
+    if (!structType) {
+      return failure();
+    }
+    switch (cast<PointTypeInterface>(op.getType()).getNumCoords()) {
+    case 2: {
       auto pointStruct = SimpleStructBuilder<2>::initialized(
           rewriter, loc, structType, adaptor.getCoords());
       rewriter.replaceOp(op, {pointStruct});
-    } else if (isa<JacobianType>(op.getType())) {
+      return success();
+    }
+    case 3: {
       auto pointStruct = SimpleStructBuilder<3>::initialized(
           rewriter, loc, structType, adaptor.getCoords());
       rewriter.replaceOp(op, {pointStruct});
-    } else if (isa<XYZZType>(op.getType())) {
+      return success();
+    }
+    case 4: {
       auto pointStruct = SimpleStructBuilder<4>::initialized(
           rewriter, loc, structType, adaptor.getCoords());
       rewriter.replaceOp(op, {pointStruct});
+      return success();
     }
-    return success();
+    default:
+      // Reported rather than ignored: falling through used to leave the op in
+      // place and still return success, which loses the point silently.
+      return op.emitOpError("unsupported coordinate count for LLVM lowering");
+    }
   }
 };
 
@@ -94,21 +106,30 @@ struct ConvertToCoords : public ConvertOpToLLVMPattern<ToCoordsOp> {
   LogicalResult
   matchAndRewrite(ToCoordsOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    if (isa<AffineType>(op.getInput().getType())) {
-      SimpleStructBuilder<2> affineStruct(adaptor.getInput());
-      SmallVector<Value> coords = affineStruct.getValues(rewriter, op.getLoc());
+    auto loc = op.getLoc();
+    switch (cast<PointTypeInterface>(op.getInput().getType()).getNumCoords()) {
+    case 2: {
+      SimpleStructBuilder<2> pointStruct(adaptor.getInput());
+      SmallVector<Value> coords = pointStruct.getValues(rewriter, loc);
       rewriter.replaceOpWithMultiple(op, coords);
-    } else if (isa<JacobianType>(op.getInput().getType())) {
-      SimpleStructBuilder<3> jacobianStruct(adaptor.getInput());
-      SmallVector<Value> coords =
-          jacobianStruct.getValues(rewriter, op.getLoc());
-      rewriter.replaceOpWithMultiple(op, coords);
-    } else if (isa<XYZZType>(op.getInput().getType())) {
-      SimpleStructBuilder<4> xyzzStruct(adaptor.getInput());
-      SmallVector<Value> coords = xyzzStruct.getValues(rewriter, op.getLoc());
-      rewriter.replaceOpWithMultiple(op, coords);
+      return success();
     }
-    return success();
+    case 3: {
+      SimpleStructBuilder<3> pointStruct(adaptor.getInput());
+      SmallVector<Value> coords = pointStruct.getValues(rewriter, loc);
+      rewriter.replaceOpWithMultiple(op, coords);
+      return success();
+    }
+    case 4: {
+      SimpleStructBuilder<4> pointStruct(adaptor.getInput());
+      SmallVector<Value> coords = pointStruct.getValues(rewriter, loc);
+      rewriter.replaceOpWithMultiple(op, coords);
+      return success();
+    }
+    default:
+      // See ConvertFromCoords: silence here loses the coordinates.
+      return op.emitOpError("unsupported coordinate count for LLVM lowering");
+    }
   }
 };
 
@@ -215,12 +236,9 @@ void populateEllipticCurveToLLVMTypeConversion(
     LLVMTypeConverter &typeConverter) {
   typeConverter.addConversion(
       [](field::PrimeFieldType type) { return type.getStorageType(); });
-  typeConverter.addConversion(
-      [&](AffineType type) { return convertPointType(type, typeConverter); });
-  typeConverter.addConversion(
-      [&](JacobianType type) { return convertPointType(type, typeConverter); });
-  typeConverter.addConversion(
-      [&](XYZZType type) { return convertPointType(type, typeConverter); });
+  typeConverter.addConversion([&](PointTypeInterface type) {
+    return convertPointType(type, typeConverter);
+  });
 }
 
 void populateEllipticCurveToLLVMConversionPatterns(
