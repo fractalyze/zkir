@@ -183,6 +183,11 @@ def EllipticCurve_AddOp : EllipticCurve_BinaryOp<"add", [Commutative]> {
     affine, xyzz -> xyzz
     jacobian, jacobian -> jacobian
     xyzz, xyzz -> xyzz
+    ed_affine, ed_affine -> ed_extended
+    ed_affine, ed_extended -> ed_extended
+    ed_extended, ed_extended -> ed_extended
+
+    Both operands and the result must belong to the same curve family.
 
     Example:
     ```
@@ -205,6 +210,11 @@ def EllipticCurve_SubOp : EllipticCurve_BinaryOp<"sub"> {
     affine, xyzz -> xyzz
     jacobian, jacobian -> jacobian
     xyzz, xyzz -> xyzz
+    ed_affine, ed_affine -> ed_extended
+    ed_affine, ed_extended -> ed_extended
+    ed_extended, ed_extended -> ed_extended
+
+    Both operands and the result must belong to the same curve family.
 
     Example:
     ```
@@ -245,6 +255,8 @@ def EllipticCurve_DoubleOp : EllipticCurve_UnaryOp<"double"> {
     affine -> xyzz
     jacobian -> jacobian
     xyzz -> xyzz
+    ed_affine -> ed_extended
+    ed_extended -> ed_extended
 
     Example:
     ```
@@ -268,6 +280,8 @@ def EllipticCurve_ScalarMulOp : EllipticCurve_Op<"scalar_mul"> {
     affine -> xyzz
     jacobian -> jacobian
     xyzz -> xyzz
+    ed_affine -> ed_extended
+    ed_extended -> ed_extended
 
     Example:
     ```

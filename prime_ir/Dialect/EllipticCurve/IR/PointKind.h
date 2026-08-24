@@ -35,6 +35,18 @@ constexpr bool isEdwards(PointKind kind) {
   return kind == PointKind::kEdAffine || kind == PointKind::kEdExtended;
 }
 
+// Affine in either family. Affine is not closed under the group law, so these
+// are the kinds an add/sub/double/scalar-mul result has to widen away from.
+constexpr bool isAffine(PointKind kind) {
+  return kind == PointKind::kAffine || kind == PointKind::kEdAffine;
+}
+
+// The two families have disjoint coordinate systems, so a group operation
+// mixing them is meaningless however the individual kinds line up.
+constexpr bool isSameFamily(PointKind lhs, PointKind rhs) {
+  return isEdwards(lhs) == isEdwards(rhs);
+}
+
 constexpr size_t getNumCoords(PointKind kind) {
   switch (kind) {
   case PointKind::kAffine:

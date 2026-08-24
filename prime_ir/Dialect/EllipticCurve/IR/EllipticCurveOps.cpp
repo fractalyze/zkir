@@ -44,6 +44,13 @@ namespace mlir::prime_ir::elliptic_curve {
 namespace {
 template <typename OpType>
 LogicalResult verifyMSMPointTypes(OpType op, Type inputType, Type outputType) {
+  // Named rather than left to fall through the short-Weierstrass cases below:
+  // no backend carries a twisted-Edwards MSM, so accepting one here would push
+  // the failure down to a lowering that cannot express it.
+  if (isa<EdAffineType, EdExtendedType>(inputType) ||
+      isa<EdAffineType, EdExtendedType>(outputType)) {
+    return op.emitError() << "MSM does not support twisted Edwards points";
+  }
   if (isa<JacobianType>(inputType) && isa<AffineType>(outputType)) {
     return op.emitError()
            << "jacobian input points require a jacobian or xyzz output type";
@@ -126,6 +133,17 @@ Value createZeroPoint(ImplicitLocOpBuilder &b, Type pointType) {
     return FromCoordsOp::create(b, pointType,
                                 ValueRange{oneBF, oneBF, zeroBF, zeroBF});
   }
+  // Twisted Edwards has a real affine identity, (0, 1), rather than the
+  // off-curve sentinel short Weierstrass uses for the point at infinity —
+  // a*0^2 + 1^2 = 1 = 1 + d*0^2*1^2. Extended carries it as x = X/Z, y = Y/Z,
+  // T = XY/Z, so (0 : 1 : 1 : 0).
+  if (isa<EdAffineType>(pointType)) {
+    return FromCoordsOp::create(b, pointType, ValueRange{zeroBF, oneBF});
+  }
+  if (isa<EdExtendedType>(pointType)) {
+    return FromCoordsOp::create(b, pointType,
+                                ValueRange{zeroBF, oneBF, oneBF, zeroBF});
+  }
   llvm_unreachable("Unsupported point type for createZeroPoint");
 }
 
@@ -154,35 +172,67 @@ LogicalResult ToCoordsOp::verify() {
 
 LogicalResult IsZeroOp::verify() {
   Type inputType = getInput().getType();
-  if (isa<AffineType, JacobianType, XYZZType>(getElementTypeOrSelf(inputType)))
+  if (isa<PointTypeInterface>(getElementTypeOrSelf(inputType)))
     return success();
   return emitError() << "invalid input type";
 }
 
 namespace {
+std::optional<PointKind> getPointKindOf(Type type) {
+  if (auto point = dyn_cast<PointTypeInterface>(type)) {
+    return point.getPointKind();
+  }
+  return std::nullopt;
+}
+
+// Stated over PointKind rather than the concrete types so the rule reads the
+// same for both curve families: affine is not closed under the group law, so
+// an affine operand widens the result to a projective kind of its own family
+// (jacobian or xyzz for short Weierstrass, extended for twisted Edwards).
 template <typename OpType>
 LogicalResult verifyBinaryOp(OpType op) {
   Type lhsType = getElementTypeOrSelf(op.getLhs().getType());
   Type rhsType = getElementTypeOrSelf(op.getRhs().getType());
   Type outputType = getElementTypeOrSelf(op.getType());
-  if (isa<AffineType>(lhsType) || isa<AffineType>(rhsType)) {
-    if (lhsType == rhsType && isa<JacobianType, XYZZType>(outputType)) {
-      // affine, affine -> jacobian
-      // affine, affine -> xyzz
+  std::optional<PointKind> lhs = getPointKindOf(lhsType);
+  std::optional<PointKind> rhs = getPointKindOf(rhsType);
+  std::optional<PointKind> out = getPointKindOf(outputType);
+  if (!lhs || !rhs || !out) {
+    return op->emitError() << "input or output types are wrong";
+  }
+  if (!isSameFamily(*lhs, *rhs) || !isSameFamily(*lhs, *out)) {
+    return op->emitError()
+           << "cannot mix short Weierstrass and twisted Edwards points";
+  }
+  if (isAffine(*lhs) || isAffine(*rhs)) {
+    // affine, affine -> any projective kind of the family
+    if (lhsType == rhsType && !isAffine(*out)) {
       return success();
-    } else if (!isa<AffineType>(outputType) &&
-               (lhsType == outputType || rhsType == outputType)) {
-      // affine, jacobian -> jacobian
-      // affine, xyzz -> xyzz
+    }
+    // affine, projective -> that same projective type
+    if (!isAffine(*out) && (lhsType == outputType || rhsType == outputType)) {
       return success();
     }
   } else if (lhsType == rhsType && rhsType == outputType) {
-    // jacobian, jacobian -> jacobian
-    // xyzz, xyzz -> xyzz
+    // projective, projective -> the same projective type
     return success();
   }
   // TODO(ashjeong): check the curves of given types are the same
   return op->emitError() << "input or output types are wrong";
+}
+
+// Shared by the two unary group operations: an affine input widens to a
+// projective kind of the same family, and any other kind passes through.
+LogicalResult verifyAffineWidens(Operation *op, Type inputType, Type outputType,
+                                 StringRef what) {
+  std::optional<PointKind> in = getPointKindOf(inputType);
+  std::optional<PointKind> out = getPointKindOf(outputType);
+  if (in && out && isSameFamily(*in, *out) &&
+      ((isAffine(*in) && !isAffine(*out)) || inputType == outputType)) {
+    return success();
+  }
+  // TODO(ashjeong): check curves/fields are the same
+  return op->emitError() << "wrong output type given " << what;
 }
 } // namespace
 
@@ -191,23 +241,13 @@ LogicalResult AddOp::verify() { return verifyBinaryOp(*this); }
 LogicalResult SubOp::verify() { return verifyBinaryOp(*this); }
 
 LogicalResult DoubleOp::verify() {
-  Type inputType = getElementTypeOrSelf(getInput());
-  Type outputType = getElementTypeOrSelf(getType());
-  if ((isa<AffineType>(inputType) && isa<JacobianType, XYZZType>(outputType)) ||
-      inputType == outputType)
-    return success();
-  // TODO(ashjeong): check curves/fields are the same
-  return emitError() << "wrong output type given input type";
+  return verifyAffineWidens(*this, getElementTypeOrSelf(getInput()),
+                            getElementTypeOrSelf(getType()), "input type");
 }
 
 LogicalResult ScalarMulOp::verify() {
-  Type pointType = getElementTypeOrSelf(getPoint());
-  Type outputType = getElementTypeOrSelf(getType());
-  if ((isa<AffineType>(pointType) && isa<JacobianType, XYZZType>(outputType)) ||
-      pointType == outputType)
-    return success();
-  // TODO(ashjeong): check curves/fields are the same
-  return emitError() << "wrong output type given point type";
+  return verifyAffineWidens(*this, getElementTypeOrSelf(getPoint()),
+                            getElementTypeOrSelf(getType()), "point type");
 }
 
 LogicalResult CmpOp::verify() {
