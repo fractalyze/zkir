@@ -31,14 +31,37 @@ enum class PointKind {
   kEdExtended,
 };
 
+// Written as default-less switches rather than equality chains: a chain answers
+// "no" for a representation added later, which is a silent misclassification,
+// while a switch is at least reachable by -Wswitch. Nothing in this repo's
+// build turns that warning into an error today, so treat these as the one place
+// to update rather than as a guarantee the compiler will stop you.
 constexpr bool isEdwards(PointKind kind) {
-  return kind == PointKind::kEdAffine || kind == PointKind::kEdExtended;
+  switch (kind) {
+  case PointKind::kEdAffine:
+  case PointKind::kEdExtended:
+    return true;
+  case PointKind::kAffine:
+  case PointKind::kJacobian:
+  case PointKind::kXYZZ:
+    return false;
+  }
+  return false;
 }
 
 // Affine in either family. Affine is not closed under the group law, so these
 // are the kinds an add/sub/double/scalar-mul result has to widen away from.
 constexpr bool isAffine(PointKind kind) {
-  return kind == PointKind::kAffine || kind == PointKind::kEdAffine;
+  switch (kind) {
+  case PointKind::kAffine:
+  case PointKind::kEdAffine:
+    return true;
+  case PointKind::kJacobian:
+  case PointKind::kXYZZ:
+  case PointKind::kEdExtended:
+    return false;
+  }
+  return false;
 }
 
 // The two families have disjoint coordinate systems, so a group operation
@@ -60,6 +83,8 @@ constexpr size_t getNumCoords(PointKind kind) {
   case PointKind::kEdExtended:
     return 4;
   }
+  // Unreachable for any declared kind; falling off the end would be UB.
+  return 0;
 }
 
 template <typename Point>

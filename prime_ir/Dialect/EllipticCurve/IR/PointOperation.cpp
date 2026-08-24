@@ -49,18 +49,13 @@ PointOperation applyBinaryOp(const PointOperation::OperationType &a,
       [&](const auto &lhs, const auto &rhs) -> PointOperation {
         using LHS = std::decay_t<decltype(lhs)>;
         using RHS = std::decay_t<decltype(rhs)>;
-        constexpr bool lhsIsEd = std::is_same_v<LHS, EdAffinePointOperation> ||
-                                 std::is_same_v<LHS, EdExtendedPointOperation>;
-        constexpr bool rhsIsEd = std::is_same_v<RHS, EdAffinePointOperation> ||
-                                 std::is_same_v<RHS, EdExtendedPointOperation>;
-        if constexpr (lhsIsEd != rhsIsEd) {
-          // Cross-family (SW ↔ TE) binary ops are not supported.
+        // See the matching comment in PointCodeGen.cpp.
+        constexpr bool kRealizable = std::is_same_v<LHS, RHS> ||
+                                     isAffine(LHS::getKind()) ||
+                                     isAffine(RHS::getKind());
+        if constexpr (!isSameFamily(LHS::getKind(), RHS::getKind())) {
           llvm_unreachable("Cross-family binary op not supported");
-        } else if constexpr (std::is_same_v<LHS, RHS>) {
-          return op(lhs, rhs);
-          // NOLINTNEXTLINE(readability/braces)
-        } else if constexpr (std::is_same_v<LHS, AffinePointOperation> ||
-                             std::is_same_v<RHS, AffinePointOperation>) {
+        } else if constexpr (kRealizable) {
           return op(lhs, rhs);
         }
         llvm_unreachable("Unsupported field type in binary operator");

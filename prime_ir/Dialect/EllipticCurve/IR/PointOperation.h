@@ -153,7 +153,9 @@ public:
     }
   }
 
-  PointKind getKind() const { return Kind; }
+  // Static so it is usable as LHS::getKind() in the if-constexpr dispatch
+  // in PointOperation.cpp; still callable on an instance.
+  static constexpr PointKind getKind() { return Kind; }
 
   template <PointKind Kind2 = Kind,
             std::enable_if_t<Kind2 != PointKind::kAffine> * = nullptr>

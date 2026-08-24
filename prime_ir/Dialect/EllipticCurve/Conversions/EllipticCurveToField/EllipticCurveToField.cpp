@@ -743,15 +743,19 @@ struct ConvertScalarMul : public OpConversionPattern<ScalarMulOp> {
     Value point = op.getPoint();
     Value scalarPF = op.getScalar();
 
-    Type pointType = op.getPoint().getType();
     Type outputType = op.getType();
 
+    // By point kind, not isa<AffineType>: that names only the short Weierstrass
+    // affine type, so an Edwards affine point would skip the widening below.
+    const bool pointIsAffine =
+        isAffine(cast<PointTypeInterface>(point.getType()).getPointKind());
+
     // AOT runtime path: emit func.call for scalar multiply.
-    // Use "scalar_mul" for affine input, "scalar_mul_jac" for jacobian input.
+    // Use "scalar_mul" for affine input, "scalar_mul_jac" for projective
+    // input (the name predates the twisted Edwards representations).
     if (shouldUseAOTRuntime(op, outputType, aotConfig.mode,
                             aotConfig.inlineConstOps)) {
-      std::string opName =
-          isa<AffineType>(pointType) ? "scalar_mul" : "scalar_mul_jac";
+      std::string opName = pointIsAffine ? "scalar_mul" : "scalar_mul_jac";
       auto funcName = getAOTRuntimeFuncName(opName, outputType);
       if (funcName) {
         rewriter.replaceOp(op, emitAOTFuncCall(op, *funcName, op.getType(),
@@ -762,7 +766,7 @@ struct ConvertScalarMul : public OpConversionPattern<ScalarMulOp> {
 
     // Inline implementation: Double-and-Add algorithm
     Value zeroPoint = createZeroPoint(b, outputType);
-    Value initialPoint = isa<AffineType>(pointType)
+    Value initialPoint = pointIsAffine
                              ? ConvertPointTypeOp::create(b, outputType, point)
                              : point;
 
