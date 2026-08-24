@@ -69,5 +69,6 @@ prime_ir_cc_test(
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Support",
         "@zk_dtypes//zk_dtypes:bn254_g1",
+        "@zk_dtypes//zk_dtypes:ed25519_g1",
     ],
 )

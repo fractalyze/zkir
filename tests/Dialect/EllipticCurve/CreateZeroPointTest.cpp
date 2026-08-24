@@ -28,6 +28,7 @@ limitations under the License.
 #include "prime_ir/Dialect/Field/IR/FieldOps.h"
 #include "prime_ir/Dialect/Field/IR/PrimeFieldOperation.h"
 #include "zk_dtypes/include/elliptic_curve/bn/bn254/g1.h"
+#include "zk_dtypes/include/elliptic_curve/curve25519/ed25519/g1.h"
 
 namespace mlir::prime_ir::elliptic_curve {
 namespace {
@@ -110,6 +111,25 @@ TEST_F(CreateZeroPointTest, XYZZ) {
   auto attr = AffinePointOperation::getPointType<zk_dtypes::bn254::G1PointXyzz>(
       &context);
   testCreateZeroPoint(attr, {false, false, true, true});
+}
+
+// Twisted Edwards has a real affine identity, (0, 1), on the curve — unlike
+// the short-Weierstrass (0, 0), which is a sentinel precisely because it is
+// off the curve. Getting this wrong yields a point that verifies and computes
+// the wrong answer, so the pattern is pinned per representation.
+TEST_F(CreateZeroPointTest, EdAffine) {
+  auto attr =
+      AffinePointOperation::getPointType<zk_dtypes::ed25519::G1AffinePoint>(
+          &context);
+  testCreateZeroPoint(attr, {true, false});
+}
+
+// Extended carries x = X/Z, y = Y/Z and T = XY/Z, so (0, 1) is (0 : 1 : 1 : 0).
+TEST_F(CreateZeroPointTest, EdExtended) {
+  auto attr =
+      AffinePointOperation::getPointType<zk_dtypes::ed25519::G1ExtendedPoint>(
+          &context);
+  testCreateZeroPoint(attr, {true, false, false, true});
 }
 
 } // namespace
