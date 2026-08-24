@@ -80,7 +80,9 @@ public:
   PointCodeGenBase() = default;
   explicit PointCodeGenBase(Value value) : value(value) {}
 
-  PointKind getKind() const { return Kind; }
+  // Static so it is usable as LHS::getKind() in the if-constexpr dispatch
+  // in PointCodeGen.cpp; still callable on an instance.
+  static constexpr PointKind getKind() { return Kind; }
   operator Value() const { return value; }
 
   template <PointKind Kind2>

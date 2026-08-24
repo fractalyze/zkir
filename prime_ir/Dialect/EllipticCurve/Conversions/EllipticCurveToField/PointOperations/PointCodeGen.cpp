@@ -66,17 +66,17 @@ PointCodeGen applyBinaryOp(const PointCodeGen::CodeGenType &a,
       [&](const auto &lhs, const auto &rhs) -> PointCodeGen {
         using LHS = std::decay_t<decltype(lhs)>;
         using RHS = std::decay_t<decltype(rhs)>;
-        constexpr bool lhsIsEd = std::is_same_v<LHS, EdAffinePointCodeGen> ||
-                                 std::is_same_v<LHS, EdExtendedPointCodeGen>;
-        constexpr bool rhsIsEd = std::is_same_v<RHS, EdAffinePointCodeGen> ||
-                                 std::is_same_v<RHS, EdExtendedPointCodeGen>;
-        if constexpr (lhsIsEd != rhsIsEd) {
+        // Either the same coordinate system on both sides, or a mixed
+        // addition with one affine operand. Classified by point kind rather
+        // than by naming concrete classes: is_same_v against
+        // AffinePointCodeGen covers only short Weierstrass, which silently
+        // excluded Edwards from the mixed-addition arm.
+        constexpr bool kRealizable = std::is_same_v<LHS, RHS> ||
+                                     isAffine(LHS::getKind()) ||
+                                     isAffine(RHS::getKind());
+        if constexpr (!isSameFamily(LHS::getKind(), RHS::getKind())) {
           llvm_unreachable("Cross-family binary op not supported");
-        } else if constexpr (std::is_same_v<LHS, RHS>) {
-          return op(lhs, rhs);
-          // NOLINTNEXTLINE(readability/braces)
-        } else if constexpr (std::is_same_v<LHS, AffinePointCodeGen> ||
-                             std::is_same_v<RHS, AffinePointCodeGen>) {
+        } else if constexpr (kRealizable) {
           return op(lhs, rhs);
         }
         llvm_unreachable("Unsupported field type in binary operator");
