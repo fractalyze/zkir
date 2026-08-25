@@ -264,16 +264,23 @@ struct ConvertIsZero : public OpConversionPattern<IsZeroOp> {
         cast<PointTypeInterface>(op.getInput().getType()).getBaseFieldType();
     Value zeroBF = field::createFieldZero(baseFieldType, b);
 
+    // Switched over the kind rather than an isa<> chain: the chain's else arm
+    // silently applied the short Weierstrass projective rule -- and indexed
+    // coords[2] -- on any type it did not name.
     Value isZero;
-    Type inputType = op.getInput().getType();
-    if (isa<AffineType>(inputType)) {
+    auto inputPt =
+        cast<PointTypeInterface>(getElementTypeOrSelf(op.getInput().getType()));
+    switch (inputPt.getPointKind()) {
+    case PointKind::kAffine: {
       // SW affine identity: (0, 0)
       Value xIsZero =
           field::CmpOp::create(b, arith::CmpIPredicate::eq, coords[0], zeroBF);
       Value yIsZero =
           field::CmpOp::create(b, arith::CmpIPredicate::eq, coords[1], zeroBF);
       isZero = arith::AndIOp::create(b, xIsZero, yIsZero);
-    } else if (isa<EdAffineType>(inputType)) {
+      break;
+    }
+    case PointKind::kEdAffine: {
       // Edwards affine identity: (0, 1)
       Value oneBF = field::createFieldOne(baseFieldType, b);
       Value xIsZero =
@@ -281,7 +288,9 @@ struct ConvertIsZero : public OpConversionPattern<IsZeroOp> {
       Value yIsOne =
           field::CmpOp::create(b, arith::CmpIPredicate::eq, coords[1], oneBF);
       isZero = arith::AndIOp::create(b, xIsZero, yIsOne);
-    } else if (isa<EdExtendedType>(inputType)) {
+      break;
+    }
+    case PointKind::kEdExtended: {
       // Edwards extended identity: (0, c, c, 0) for any c != 0.
       // Check X == 0 and Y == Z (projective equivalence to (0, 1, 1, 0)).
       Value xIsZero =
@@ -289,10 +298,14 @@ struct ConvertIsZero : public OpConversionPattern<IsZeroOp> {
       Value yEqZ = field::CmpOp::create(b, arith::CmpIPredicate::eq, coords[1],
                                         coords[2]);
       isZero = arith::AndIOp::create(b, xIsZero, yEqZ);
-    } else {
+      break;
+    }
+    case PointKind::kJacobian:
+    case PointKind::kXYZZ:
       // SW projective: identity has Z == 0
       isZero =
           field::CmpOp::create(b, arith::CmpIPredicate::eq, coords[2], zeroBF);
+      break;
     }
     rewriter.replaceOp(op, isZero);
     return success();
@@ -623,17 +636,25 @@ struct ConvertNegate : public OpConversionPattern<NegateOp> {
     Operation::result_range coords = toCoords(b, op.getInput());
     SmallVector<Value> outputCoords(coords);
 
-    Type elementType = getElementTypeOrSelf(op.getType());
-    if (isa<EdAffineType>(elementType)) {
+    // Switched over the kind rather than an isa<> chain: the chain's else arm
+    // silently applied the short Weierstrass rule to anything it did not name.
+    auto pt = cast<PointTypeInterface>(getElementTypeOrSelf(op.getType()));
+    switch (pt.getPointKind()) {
+    case PointKind::kEdAffine:
       // Twisted Edwards affine: -(x, y) = (-x, y)
       outputCoords[0] = field::NegateOp::create(b, coords[0]);
-    } else if (isa<EdExtendedType>(elementType)) {
+      break;
+    case PointKind::kEdExtended:
       // Twisted Edwards extended: -(X, Y, Z, T) = (-X, Y, Z, -T)
       outputCoords[0] = field::NegateOp::create(b, coords[0]);
       outputCoords[3] = field::NegateOp::create(b, coords[3]);
-    } else {
+      break;
+    case PointKind::kAffine:
+    case PointKind::kJacobian:
+    case PointKind::kXYZZ:
       // Short Weierstrass: negate Y coordinate.
       outputCoords[1] = field::NegateOp::create(b, coords[1]);
+      break;
     }
 
     rewriter.replaceOp(op, fromCoords(b, op.getType(), outputCoords));

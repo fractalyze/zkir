@@ -72,7 +72,6 @@ func.func @test_ed_extended_constant() {
 // hit an llvm_unreachable, and scalar multiply skipped the widening and left an
 // affine value where the loop expected the projective output type.
 
-!ed_affine = !elliptic_curve.ed_affine<#ed25519>
 !EdSF = !field.pf<7237005577332262213973186563042994240857116359379907606001950938285454250989:i256>
 
 // Test: mixed addition, extended + affine -> extended.

@@ -868,7 +868,7 @@ field::FieldOperation getFieldOpFromAttr(Attribute attr, Type fieldType) {
 template <PointKind Kind>
 PointOperationBase<Kind> pointOpFromArrayAttr(ArrayAttr coordsAttr,
                                               PointTypeInterface pointType) {
-  constexpr size_t kNumCoords = static_cast<size_t>(Kind) + 2;
+  constexpr size_t kNumCoords = PointOperationBase<Kind>::kNumCoords;
   assert(
       coordsAttr.size() == kNumCoords &&
       "ArrayAttr size must match the number of coordinates for the PointKind");
@@ -931,17 +931,20 @@ PointOperation createPointOp(ArrayAttr coordsAttr,
   // Extract the inner array (single point) from unified structure
   ArrayAttr pointCoords = cast<ArrayAttr>(coordsAttr[0]);
 
-  unsigned numCoords = pointType.getNumCoords();
-  switch (numCoords) {
-  case 2:
+  // By kind, not by coordinate count -- see getNumCoords in PointKind.h.
+  switch (pointType.getPointKind()) {
+  case PointKind::kAffine:
     return pointOpFromArrayAttr<PointKind::kAffine>(pointCoords, pointType);
-  case 3:
+  case PointKind::kJacobian:
     return pointOpFromArrayAttr<PointKind::kJacobian>(pointCoords, pointType);
-  case 4:
+  case PointKind::kXYZZ:
     return pointOpFromArrayAttr<PointKind::kXYZZ>(pointCoords, pointType);
-  default:
-    llvm_unreachable("invalid number of coordinates for point type");
+  case PointKind::kEdAffine:
+    return pointOpFromArrayAttr<PointKind::kEdAffine>(pointCoords, pointType);
+  case PointKind::kEdExtended:
+    return pointOpFromArrayAttr<PointKind::kEdExtended>(pointCoords, pointType);
   }
+  llvm_unreachable("Unsupported point kind");
 }
 
 // Convert a PointOperation back to ArrayAttr
@@ -1060,10 +1063,8 @@ public:
             getElementTypeOrSelf(op->getLhs().getType()))),
         rhsPointType(cast<PointTypeInterface>(
             getElementTypeOrSelf(op->getRhs().getType()))),
-        outputKind(static_cast<PointKind>(
-            cast<PointTypeInterface>(getElementTypeOrSelf(op->getType()))
-                .getNumCoords() -
-            2)) {}
+        outputKind(cast<PointTypeInterface>(getElementTypeOrSelf(op->getType()))
+                       .getPointKind()) {}
 
   // This won't be called directly since we override foldScalar(lhs, rhs)
   PointOperation getNativeInput(ArrayAttr attr) const final {
@@ -1148,10 +1149,8 @@ OpFoldResult foldUnaryPointOp(Op *op, typename Op::FoldAdaptor adaptor,
   if (!inputPointType)
     return {};
 
-  auto outputPointType =
-      cast<PointTypeInterface>(getElementTypeOrSelf(outputType));
   PointKind outputKind =
-      static_cast<PointKind>(outputPointType.getNumCoords() - 2);
+      cast<PointTypeInterface>(getElementTypeOrSelf(outputType)).getPointKind();
 
   GenericUnaryEllipticCurveFolder<Func> folder(inputPointType, outputKind, fn);
 
