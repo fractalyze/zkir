@@ -23,7 +23,6 @@
 // symptom was a null dereference in MemRefDescriptor::fromStaticShape during
 // XLA's CPU fusion lowering -- a SIGSEGV with no diagnostic.
 
-!ed_affine = !elliptic_curve.ed_affine<#ed25519>
 
 // A 2-coordinate Edwards point lowers to the same flat struct shape a
 // 2-coordinate Weierstrass affine point does.

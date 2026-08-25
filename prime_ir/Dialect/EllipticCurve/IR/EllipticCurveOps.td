@@ -64,9 +64,12 @@ def EllipticCurve_ConstantOp : EllipticCurve_Op_Base<"constant", [ConstantLike]>
     Defines a constant elliptic curve point from integer coordinates using
     dense attribute syntax. The number of provided coordinates must match
     the point representation:
-    - 2 coordinates for Affine points
+    - 2 coordinates for Affine and EdAffine points
     - 3 coordinates for Jacobian points
-    - 4 coordinates for XYZZ points
+    - 4 coordinates for XYZZ and EdExtended points
+
+    The count does not identify the representation -- two kinds share each of
+    2 and 4 -- so the type is what selects the group law, never the count.
 
     For extension fields, each coordinate is an array of coefficients.
     For tensors, provide an array of points.

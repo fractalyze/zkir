@@ -33,9 +33,12 @@ enum class PointKind {
 
 // Written as default-less switches rather than equality chains: a chain answers
 // "no" for a representation added later, which is a silent misclassification,
-// while a switch is at least reachable by -Wswitch. Nothing in this repo's
-// build turns that warning into an error today, so treat these as the one place
-// to update rather than as a guarantee the compiler will stop you.
+// whereas an unhandled case here fails the build. //bazel:prime_ir_cc.bzl puts
+// -Werror=all on every prime_ir target and -Wall implies -Wswitch, so adding a
+// PointKind without updating these is a compile error, not a warning.
+//
+// The absence of `default:` is therefore load-bearing. Do not add one "for
+// safety": it would silence that check at every switch over this enum.
 constexpr bool isEdwards(PointKind kind) {
   switch (kind) {
   case PointKind::kEdAffine:
@@ -70,6 +73,9 @@ constexpr bool isSameFamily(PointKind lhs, PointKind rhs) {
   return isEdwards(lhs) == isEdwards(rhs);
 }
 
+// Not injective, so it cannot be inverted: ed_affine is 2 coordinates like
+// affine, and ed_extended is 4 like xyzz. Ask a type for its kind rather
+// than deriving one from a count.
 constexpr size_t getNumCoords(PointKind kind) {
   switch (kind) {
   case PointKind::kAffine:
