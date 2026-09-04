@@ -113,6 +113,44 @@ class FieldTest(absltest.TestCase):
       self.assertEqual(int(ef4_type.non_residue), non_residue_4)
       self.assertTrue(ef4_type.is_montgomery)
 
+  def testExtensionFieldGeneralModulus(self):
+    # The pil2-stark Goldilocks cubic x³ - x - 1 (u³ = 1 + u): a general
+    # monic modulus is encoded as a DenseIntElementsAttr of the low
+    # coefficients on a prime base. Like the binomial non-residue, the
+    # in-memory attribute carries the coefficients in the base field's
+    # representation (Montgomery raw form when the base is Montgomery);
+    # only the textual form is standard. jax's MLIR bridge must emit the
+    # same when zk_dtypes' efinfo carries modulus_low_coeffs.
+    goldilocks_modulus = 2**64 - 2**32 + 1
+    goldilocks_r = 2**64 % goldilocks_modulus  # Montgomery form of 1
+    # IntegerAttr.get casts through int64_t; reinterpret as two's complement
+    # for values >= 2^63 (jax's _to_signless_int_attr does the same).
+    goldilocks_modulus_signed = goldilocks_modulus - 2**64
+    for is_montgomery in (False, True):
+      with Context() as ctx, Location.unknown():
+        field.register_dialect(ctx)
+        i64 = IntegerType.get_signless(64)
+        pf = field.PrimeFieldType.get(
+            IntegerAttr.get(i64, goldilocks_modulus_signed), is_montgomery, ctx
+        )
+        one = goldilocks_r if is_montgomery else 1
+        coeffs_attr = DenseElementsAttr.get(
+            [IntegerAttr.get(i64, c) for c in (one, one, 0)],
+            type=RankedTensorType.get([3], i64),
+        )
+        ef3_type = field.ExtensionFieldType.get(3, pf, coeffs_attr)
+        mont_suffix = ", true" if is_montgomery else ""
+        self.assertEqual(
+            str(ef3_type),
+            "!field.ef<3x!field.pf<18446744069414584321 : i64"
+            f"{mont_suffix}>, dense<[1, 1, 0]> : tensor<3xi64>>",
+        )
+        self.assertEqual(ef3_type.degree, 3)
+        self.assertEqual(ef3_type.degree_over_prime, 3)
+        self.assertFalse(ef3_type.is_tower)
+        self.assertEqual(ef3_type.base_field, pf)
+        self.assertEqual(ef3_type.is_montgomery, is_montgomery)
+
   def testExtensionFieldTowerCreation(self):
     with Context() as ctx, Location.unknown():
       field.register_dialect(ctx)
