@@ -8,12 +8,15 @@ default_install_hook_types: [pre-commit, commit-msg]
 repos:
   # fractal-commit-lint — Conventional Commits + scope policy. Scope rules live
   # in .fractal-commit-lint.toml; CI runs the same tool over each commit via the
-  # commit-lint action in hybrid mode. (fractal-lint / fractal-build-lint are
-  # intentionally not enabled — cpplint/clang-format/buildifier cover C++/BUILD.)
+  # commit-lint action in hybrid mode.
+  # fractal-build-lint — BUILD.bazel target sorting + test naming, which
+  # buildifier does NOT enforce (buildifier only formats/lints Starlark).
+  # fractal-lint (C++ style) stays off — cpplint/clang-format cover C++.
   - repo: https://github.com/fractalyze/fractal-lint
     rev: v0.7.0
     hooks:
       - id: fractal-commit-lint
+      - id: fractal-build-lint
 
   # Built-in hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
