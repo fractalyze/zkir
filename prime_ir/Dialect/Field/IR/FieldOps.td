@@ -353,12 +353,23 @@ def Field_PowUIOp : Field_Op<"powui", [TypesMatchWith<
   let description = [{
     Computes the field element a raised to the power of unsigned integer b.
 
+    The optional `unroll` attribute selects the shape of the lowered
+    square-and-multiply schedule when the exponent is a compile-time constant.
+    Absent or `true` emits it straight-line; `false` keeps the runtime
+    bit-serial loop. Straight-line is the cheaper form for a caller that is
+    already unrolled around this op, while a caller that rolls its own rounds
+    (a Poseidon permutation applying one S-box per round) executes fewer
+    instructions with the loop, and a straight-line chain per S-box inflates
+    what LLVM has to simplify. A dynamic exponent always lowers to the loop.
+
     Example:
     ```
     %power = field.powui %a, %b : !field.pf<primeModulus>, i32
+    %rolled = field.powui %a, %b {unroll = false} : !field.pf<primeModulus>, i32
     ```
   }];
-  let arguments = (ins FieldLike:$base, SignlessIntegerLike:$exp);
+  let arguments = (ins FieldLike:$base, SignlessIntegerLike:$exp,
+                       OptionalAttr<BoolAttr>:$unroll);
   let results = (outs FieldLike:$output);
   let assemblyFormat = "operands attr-dict `:` type($base) `,` type($exp)";
 }
