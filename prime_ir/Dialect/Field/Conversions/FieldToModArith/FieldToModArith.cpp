@@ -15,6 +15,7 @@ limitations under the License.
 
 #include "prime_ir/Dialect/Field/Conversions/FieldToModArith/FieldToModArith.h"
 
+#include <algorithm>
 #include <utility>
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
@@ -802,15 +803,7 @@ struct ConvertPowUI : public OpConversionPattern<PowUIOp> {
     }
 
     unsigned expBitWidth = cast<IntegerType>(exp.getType()).getWidth();
-    unsigned modBitWidth = modulus.getBitWidth();
-    if (modBitWidth > expBitWidth) {
-      exp = arith::ExtUIOp::create(
-          b, IntegerType::get(exp.getContext(), modBitWidth), exp);
-    } else {
-      modulus = modulus.zext(expBitWidth);
-      modBitWidth = expBitWidth;
-    }
-    IntegerType intType = cast<IntegerType>(exp.getType());
+    bool unroll = op.getUnroll().value_or(true);
 
     auto emitBitSerialLoop = [&](Value exp) {
       return generateBitSerialLoop(
@@ -820,15 +813,17 @@ struct ConvertPowUI : public OpConversionPattern<PowUIOp> {
           },
           [](ImplicitLocOpBuilder &b, Value acc, Value v) {
             return MulOp::create(b, acc, v);
-          });
+          },
+          unroll);
     };
 
     // Reduce exponent using Fermat's little theorem:
     // x^(p-1) ≡ 1 (prime field), x^(pᵈ-1) ≡ 1 (extension field)
+    modulus = modulus.zext(std::max(expBitWidth, modulus.getBitWidth()));
     APInt order;
     if (auto efType = dyn_cast<ExtensionFieldType>(fieldType)) {
       unsigned degreeOverPrime = efType.getDegreeOverPrime();
-      modulus = modulus.zext(modBitWidth * degreeOverPrime);
+      modulus = modulus.zext(modulus.getBitWidth() * degreeOverPrime);
       order = modulus;
       for (unsigned i = 1; i < degreeOverPrime; ++i)
         order = order * modulus;
@@ -836,18 +831,20 @@ struct ConvertPowUI : public OpConversionPattern<PowUIOp> {
     } else {
       order = modulus - 1;
     }
+    auto intType = IntegerType::get(op.getContext(), order.getBitWidth());
 
+    // Match the literal on the exponent as the op carries it. Widening it to
+    // the order's width first would hide an `arith.constant` behind an
+    // `arith.extui`, sending every field whose modulus is wider than the
+    // exponent type down the runtime `remui` path -- and into the bit-serial
+    // loop -- for an exponent that was a literal all along.
     if (auto expConstOp = exp.getDefiningOp<arith::ConstantOp>()) {
       APInt cExp = cast<IntegerAttr>(expConstOp.getValue()).getValue();
-      cExp = cExp.zext(order.getBitWidth());
-      cExp = cExp.urem(order);
-      intType = IntegerType::get(exp.getContext(), order.getBitWidth());
-      exp = arith::ConstantIntOp::create(b, intType, cExp);
+      exp = arith::ConstantIntOp::create(
+          b, intType, cExp.zext(order.getBitWidth()).urem(order));
     } else {
-      if (order.getBitWidth() > intType.getWidth()) {
-        intType = IntegerType::get(exp.getContext(), order.getBitWidth());
+      if (order.getBitWidth() > expBitWidth)
         exp = arith::ExtUIOp::create(b, intType, exp);
-      }
       exp = arith::RemUIOp::create(
           b, exp, arith::ConstantIntOp::create(b, intType, order));
     }

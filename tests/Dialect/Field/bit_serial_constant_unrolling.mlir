@@ -15,10 +15,13 @@
 
 // Tests that field.powui with constant exponents is unrolled into straight-line
 // IR (no scf.while/scf.if), while dynamic exponents produce a runtime loop.
+// A `unroll = false` attribute keeps the loop for a constant exponent.
 
 // RUN: prime-ir-opt -field-to-mod-arith -canonicalize %s | FileCheck %s -enable-var-scope
 
 !PF = !field.pf<7:i32>
+!GL = !field.pf<18446744069414584321:i64>
+!GL3 = !field.ef<3x!GL, 7:i64>
 
 // exp = 0 → Fermat: 0 % 6 = 0 → identity
 // CHECK-LABEL: @test_powui_const_zero
@@ -98,4 +101,48 @@ func.func @test_powui_const_seven(%base: !PF) -> !PF {
 func.func @test_powui_dynamic(%base: !PF, %exp: i32) -> !PF {
   %res = field.powui %base, %exp : !PF, i32
   return %res : !PF
+}
+
+// A modulus wider than the exponent type must still reach the constant path.
+// The exponent is reduced mod p-1 before any widening, so the literal stays
+// visible; reducing after an arith.extui hid it and fell back to the loop.
+
+// exp = 7 (111₂), p-1 = 2⁶⁴-2³² ≫ 7 → no reduction → 2 squares + 2 muls
+// CHECK-LABEL: @test_powui_wide_modulus_const_seven
+// CHECK-SAME: (%[[BASE:.*]]: [[T:.*]]) -> [[T]]
+// CHECK-NEXT: %[[SQ1:.*]] = mod_arith.square %[[BASE]] : [[T]]
+// CHECK-NEXT: %[[MUL1:.*]] = mod_arith.mul %[[BASE]], %[[SQ1]] : [[T]]
+// CHECK-NEXT: %[[SQ2:.*]] = mod_arith.square %[[SQ1]] : [[T]]
+// CHECK-NEXT: %[[MUL2:.*]] = mod_arith.mul %[[MUL1]], %[[SQ2]] : [[T]]
+// CHECK-NEXT: return %[[MUL2]] : [[T]]
+func.func @test_powui_wide_modulus_const_seven(%base: !GL) -> !GL {
+  %exp = arith.constant 7 : i32
+  %res = field.powui %base, %exp : !GL, i32
+  return %res : !GL
+}
+
+// The order is p³-1 here, wider still than both the modulus and the exponent.
+// CHECK-LABEL: @test_powui_wide_extension_const_five
+// CHECK-NOT: scf.while
+// CHECK: return
+func.func @test_powui_wide_extension_const_five(%base: !GL3) -> !GL3 {
+  %exp = arith.constant 5 : i32
+  %res = field.powui %base, %exp : !GL3, i32
+  return %res : !GL3
+}
+
+// unroll = false keeps the loop even though the exponent is a literal. The
+// reduced exponent still reaches it as a constant — 3 is 7 >> 1, the trip
+// counter after the loop's first-iteration unrolling.
+// CHECK-LABEL: @test_powui_const_no_unroll
+// CHECK-NOT: mod_arith.square
+// CHECK: %[[C3:.*]] = arith.constant 3 : i64
+// CHECK: scf.while (%{{.*}} = %[[C3]]
+// CHECK: mod_arith.square
+// CHECK: scf.if
+// CHECK: mod_arith.mul
+func.func @test_powui_const_no_unroll(%base: !GL) -> !GL {
+  %exp = arith.constant 7 : i32
+  %res = field.powui %base, %exp {unroll = false} : !GL, i32
+  return %res : !GL
 }
