@@ -353,14 +353,15 @@ def Field_PowUIOp : Field_Op<"powui", [TypesMatchWith<
   let description = [{
     Computes the field element a raised to the power of unsigned integer b.
 
-    The optional `unroll` attribute selects the shape of the lowered
-    square-and-multiply schedule when the exponent is a compile-time constant.
-    Absent or `true` emits it straight-line; `false` keeps the runtime
-    bit-serial loop. Straight-line is the cheaper form for a caller that is
-    already unrolled around this op, while a caller that rolls its own rounds
-    (a Poseidon permutation applying one S-box per round) executes fewer
-    instructions with the loop, and a straight-line chain per S-box inflates
-    what LLVM has to simplify. A dynamic exponent always lowers to the loop.
+    The optional `unroll` attribute picks the shape of the lowered
+    square-and-multiply schedule for a compile-time-constant exponent: absent
+    or `true` emits it straight-line, `false` keeps the bit-serial loop. Each
+    rolled call site is a control-flow region LLVM has to simplify, so a caller
+    that spells out many of them (a Poseidon permutation applying one S-box per
+    round) pays for the loop in compile time and is measured to execute
+    slightly fewer instructions with it; a caller already unrolled around this
+    op wants the straight-line form and the constant folding it exposes. A
+    dynamic exponent always lowers to the loop.
 
     Example:
     ```

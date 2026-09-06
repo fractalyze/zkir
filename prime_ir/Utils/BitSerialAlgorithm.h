@@ -38,15 +38,15 @@ using AccumulateCallback =
 // Generates an optimized LSB-first binary method (double-and-add /
 // square-and-multiply).
 //
-// When `scalar` is defined by an arith::ConstantOp and `allowUnroll` is set,
-// the loop is fully unrolled into straight-line IR without scf::WhileOp or
-// scf::IfOp. When `scalar` is dynamic, or `allowUnroll` is clear, a runtime
+// When `scalar` is defined by an arith::ConstantOp and `unroll` is set, the
+// loop is fully unrolled into straight-line IR without scf::WhileOp or
+// scf::IfOp. When `scalar` is dynamic, or `unroll` is clear, a runtime
 // scf::WhileOp loop with first-iteration unrolling is generated.
 //
-// Clearing `allowUnroll` costs the caller the constant folding the unrolled
-// form exposes, and buys back the instruction count a rolled loop executes;
-// which side wins depends on whether the caller is itself unrolled around
-// this call.
+// Clearing `unroll` costs the caller the constant folding the straight-line
+// form exposes and the compile time every rolled control-flow region adds,
+// and buys back the instruction count a rolled loop executes; which side wins
+// depends on whether the caller is itself unrolled around this call.
 //
 // Algorithm:
 //   result = identity
@@ -60,7 +60,7 @@ using AccumulateCallback =
 Value generateBitSerialLoop(ImplicitLocOpBuilder &b, Value scalar, Value base,
                             Value identity, DoubleCallback doubleOp,
                             AccumulateCallback accumulateOp,
-                            bool allowUnroll = true);
+                            bool unroll = true);
 
 } // namespace mlir::prime_ir
 

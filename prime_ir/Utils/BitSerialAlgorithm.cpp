@@ -55,9 +55,9 @@ Value generateConstantUnrolled(ImplicitLocOpBuilder &b, const APInt &scalarVal,
 
 Value generateBitSerialLoop(ImplicitLocOpBuilder &b, Value scalar, Value base,
                             Value identity, DoubleCallback doubleOp,
-                            AccumulateCallback accumulateOp, bool allowUnroll) {
+                            AccumulateCallback accumulateOp, bool unroll) {
   // If scalar is a compile-time constant, unroll into straight-line IR.
-  if (allowUnroll) {
+  if (unroll) {
     if (auto constOp = scalar.getDefiningOp<arith::ConstantOp>()) {
       APInt scalarVal = cast<IntegerAttr>(constOp.getValue()).getValue();
       return generateConstantUnrolled(b, scalarVal, base, identity, doubleOp,

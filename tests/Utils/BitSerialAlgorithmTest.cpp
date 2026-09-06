@@ -68,7 +68,7 @@ protected:
 
   // Builds a ModuleOp with constant scalar and calls generateBitSerialLoop.
   OwningOpRef<ModuleOp> buildConstantScalarTest(int64_t scalarVal,
-                                                bool allowUnroll = true) {
+                                                bool unroll = true) {
     auto i32Type = IntegerType::get(&context, 32);
     OwningOpRef<ModuleOp> module = ModuleOp::create(loc);
     Block *body = module->getBody();
@@ -79,7 +79,7 @@ protected:
     Value identity = b.create<arith::ConstantIntOp>(i32Type, 0);
 
     generateBitSerialLoop(b, scalar, base, identity, getDoubleCallback(),
-                          getAccumulateCallback(), allowUnroll);
+                          getAccumulateCallback(), unroll);
     return module;
   }
 
@@ -178,7 +178,7 @@ TEST_F(BitSerialAlgorithmTest, DynamicScalar) {
 // count is known: only the two ops of one loop body are emitted, against the
 // three accumulates and two doubles the unrolled form spells out for 7.
 TEST_F(BitSerialAlgorithmTest, ConstantScalarUnrollDisabled) {
-  auto module = buildConstantScalarTest(7, /*allowUnroll=*/false);
+  auto module = buildConstantScalarTest(7, /*unroll=*/false);
   auto counts = countOps(*module);
   EXPECT_EQ(counts.whileOp, 1);
   EXPECT_GE(counts.ifOp, 1);

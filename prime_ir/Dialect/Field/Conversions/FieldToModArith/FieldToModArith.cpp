@@ -803,7 +803,7 @@ struct ConvertPowUI : public OpConversionPattern<PowUIOp> {
     }
 
     unsigned expBitWidth = cast<IntegerType>(exp.getType()).getWidth();
-    bool allowUnroll = op.getUnroll().value_or(true);
+    bool unroll = op.getUnroll().value_or(true);
 
     auto emitBitSerialLoop = [&](Value exp) {
       return generateBitSerialLoop(
@@ -814,7 +814,7 @@ struct ConvertPowUI : public OpConversionPattern<PowUIOp> {
           [](ImplicitLocOpBuilder &b, Value acc, Value v) {
             return MulOp::create(b, acc, v);
           },
-          allowUnroll);
+          unroll);
     };
 
     // Reduce exponent using Fermat's little theorem:
